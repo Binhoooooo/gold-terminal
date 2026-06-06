@@ -1,0 +1,8 @@
+{
+  "name": "gold-terminal",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "echo 'static site'",
+    "dev": "echo 'open index.html'"
+  }
+}
