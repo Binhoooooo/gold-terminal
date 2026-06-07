@@ -36,27 +36,20 @@ int OnInit()
    Print("▸ Magic#    : ", MagicNumber);
    Print("▸ Confiance : >= ", MinConfiance, "%");
 
-   // Vérification WebRequest activé
-   string test_headers;
-   char   test_post[], test_result[];
-   int    test_res = WebRequest("GET", "https://gold-terminal-silk.vercel.app", "", 3000, test_post, test_result, test_headers);
-   if(test_res == -1 && GetLastError() == 4014)
-   {
-      Alert("⚠ ERREUR: WebRequest bloqué!\n\nVa dans MT4:\nOutils → Options → Expert Advisors\n✓ Autoriser les requêtes WebRequest\nAjoute: gold-terminal-silk.vercel.app");
-      eaActive = false;
-   }
-
+   EventSetTimer(CheckEvery);
    return INIT_SUCCEEDED;
 }
 
 //+------------------------------------------------------------------+
-void OnTick()
+void OnTimer()
 {
    if(!eaActive) return;
-   if(TimeCurrent() - lastCheck < CheckEvery) return;
-   lastCheck = TimeCurrent();
-
    CheckSignal();
+}
+
+void OnTick()
+{
+   // Garde OnTick comme fallback si OnTimer non dispo
 }
 
 //+------------------------------------------------------------------+
@@ -135,21 +128,30 @@ void CheckSignal()
    int ticket = -1;
    string msg  = "";
 
-   if(direction == "LONG")
+   // Retry jusqu'à 3 fois en cas de requote (erreur 135/136/138)
+   for(int attempt = 1; attempt <= 3; attempt++)
    {
-      double ask = MarketInfo(Symbole, MODE_ASK);
-      ticket = OrderSend(Symbole, OP_BUY, lotSize, ask, Slippage, sl, takeProfit,
-                         "GoldTerminal", MagicNumber, 0, clrLime);
-      msg = StringFormat("▲ BUY %s | %.2f lots | SL: %.2f | TP: %.2f | Conf: %d%%",
-                         Symbole, lotSize, sl, takeProfit, confiance);
-   }
-   else if(direction == "SHORT")
-   {
-      double bid = MarketInfo(Symbole, MODE_BID);
-      ticket = OrderSend(Symbole, OP_SELL, lotSize, bid, Slippage, sl, takeProfit,
-                         "GoldTerminal", MagicNumber, 0, clrRed);
-      msg = StringFormat("▼ SELL %s | %.2f lots | SL: %.2f | TP: %.2f | Conf: %d%%",
-                         Symbole, lotSize, sl, takeProfit, confiance);
+      if(direction == "LONG")
+      {
+         double ask = MarketInfo(Symbole, MODE_ASK);
+         ticket = OrderSend(Symbole, OP_BUY, lotSize, ask, Slippage, sl, takeProfit,
+                            "GoldTerminal", MagicNumber, 0, clrLime);
+         msg = StringFormat("▲ BUY %s | %.2f lots | SL: %.2f | TP: %.2f | Conf: %d%%",
+                            Symbole, lotSize, sl, takeProfit, confiance);
+      }
+      else if(direction == "SHORT")
+      {
+         double bid = MarketInfo(Symbole, MODE_BID);
+         ticket = OrderSend(Symbole, OP_SELL, lotSize, bid, Slippage, sl, takeProfit,
+                            "GoldTerminal", MagicNumber, 0, clrRed);
+         msg = StringFormat("▼ SELL %s | %.2f lots | SL: %.2f | TP: %.2f | Conf: %d%%",
+                            Symbole, lotSize, sl, takeProfit, confiance);
+      }
+      if(ticket > 0) break;
+      int err = GetLastError();
+      if(err != 135 && err != 136 && err != 138) break; // Pas une requote, inutile de retry
+      Print("⚠ Requote erreur ", err, " — tentative ", attempt, "/3");
+      Sleep(500);
    }
 
    if(ticket > 0)
@@ -199,6 +201,8 @@ string ParseStr(string json, string key, string endChar)
    int start = StringFind(json, key);
    if(start == -1) return "";
    start += StringLen(key);
+   // Saute les espaces
+   while(start < StringLen(json) && StringSubstr(json, start, 1) == " ") start++;
    int end = StringFind(json, endChar, start);
    if(end == -1) return "";
    return StringSubstr(json, start, end - start);
@@ -210,14 +214,22 @@ double ParseNum(string json, string key)
    int start = StringFind(json, key);
    if(start == -1) return 0;
    start += StringLen(key);
+   // Saute espaces et ":"
+   while(start < StringLen(json))
+   {
+      string c = StringSubstr(json, start, 1);
+      if(c != " " && c != ":") break;
+      start++;
+   }
    string val = "";
-   for(int i = start; i < start + 30; i++)
+   for(int i = start; i < start + 20; i++)
    {
       string c = StringSubstr(json, i, 1);
-      if(c == "," || c == "}" || c == "]" || c == " " || c == "\n") break;
-      if(c == "n") return 0; // null
+      if(c == "," || c == "}" || c == "]" || c == " " || c == "\n" || c == "\r") break;
+      if(c == "n" || c == "N") return 0; // null/NaN
       val += c;
    }
+   if(StringLen(val) == 0) return 0;
    return StringToDouble(val);
 }
 
@@ -247,5 +259,6 @@ string ErrorDescription(int code)
 
 void OnDeinit(const int reason)
 {
+   EventKillTimer();
    Print("Gold Terminal EA — Arrêté (raison: ", reason, ")");
 }

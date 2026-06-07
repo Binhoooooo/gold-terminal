@@ -26,14 +26,22 @@ export default async function handler(req, res) {
     const r1    = 2 * pivot - low;
     const s1    = 2 * pivot - high;
 
-    const recent = closes.slice(-20);
-    const ema5   = recent.slice(-5).reduce((a,b)=>a+b,0)/5;
-    const ema20  = recent.reduce((a,b)=>a+b,0)/recent.length;
+    const recent = closes.slice(-30);
+
+    // Vraie EMA exponentielle
+    const calcEMA = (data, period) => {
+      const k = 2 / (period + 1);
+      let ema = data.slice(0, period).reduce((a,b)=>a+b,0) / period;
+      for (let i = period; i < data.length; i++) ema = data[i] * k + ema * (1 - k);
+      return ema;
+    };
+    const ema5  = recent.length >= 5  ? calcEMA(recent, 5)  : recent[recent.length-1];
+    const ema20 = recent.length >= 20 ? calcEMA(recent, 20) : recent.reduce((a,b)=>a+b,0)/recent.length;
 
     const change = price - prev;
     const pct    = (change / prev) * 100;
 
-    // RSI
+    // RSI 14 correct
     const gains = [], losses = [];
     for (let i = 1; i < Math.min(15, recent.length); i++) {
       const d = recent[i] - recent[i-1];
@@ -43,10 +51,9 @@ export default async function handler(req, res) {
     const avgLoss = losses.length ? losses.reduce((a,b)=>a+b,0)/14 : 0.001;
     const rsi = 100 - (100 / (1 + avgGain/avgLoss));
 
-    // ATR min depends on instrument
     const isForex   = symbol.includes('USD=X');
     const atrMin    = isForex ? 0.0005 : 5;
-    const atrMax    = isForex ? 0.02   : 80;
+    const atrMax    = isForex ? 0.03   : 120;
     const volatilityOk = atr > atrMin && atr < atrMax;
 
     let signal = 'WAIT', direction = null, confidence = 0, reasons = [];
@@ -54,45 +61,48 @@ export default async function handler(req, res) {
 
     const bullMomentum    = ema5 > ema20;
     const priceAbovePivot = price > pivot;
-    const rsiOk           = rsi > 40 && rsi < 75;
-    const strongMove      = Math.abs(pct) > (isForex ? 0.05 : 0.1);
+    const rsiOk           = rsi > 35 && rsi < 78;
+    const strongMove      = Math.abs(pct) > (isForex ? 0.03 : 0.05);
+    // Score: signal si au moins 3 conditions sur 4
+    const bullScore = (bullMomentum?1:0) + (priceAbovePivot?1:0) + (rsiOk?1:0) + (volatilityOk?1:0);
+    const bearScore = (!bullMomentum?1:0) + (!priceAbovePivot?1:0) + (rsiOk?1:0) + (volatilityOk?1:0);
 
-    if (bullMomentum && priceAbovePivot && rsiOk && volatilityOk) {
+    if (bullScore >= 3 && rsiOk && volatilityOk) {
       signal = 'TRADE'; direction = 'LONG';
-      confidence = Math.min(95, 60 + (rsiOk?10:0) + (strongMove?10:0) + (volatilityOk?10:0) + (bullMomentum?15:0));
+      confidence = Math.min(92, 55 + bullScore*8 + (strongMove?7:0));
       reasons = [
-        `EMA5 (${ema5.toFixed(isForex?4:2)}) > EMA20 (${ema20.toFixed(isForex?4:2)}) — momentum haussier`,
-        `Prix au-dessus du pivot ${pivot.toFixed(isForex?4:2)}`,
-        `RSI ${rsi.toFixed(0)} — zone neutre, pas de surachat`,
+        bullMomentum ? `EMA5 (${ema5.toFixed(isForex?4:2)}) > EMA20 (${ema20.toFixed(isForex?4:2)}) — momentum haussier` : `Prix proche support`,
+        priceAbovePivot ? `Prix au-dessus du pivot ${pivot.toFixed(isForex?4:2)}` : `RSI favorable`,
+        `RSI ${rsi.toFixed(0)} — zone neutre`,
         `ATR ${atr.toFixed(isForex?4:1)} — volatilité acceptable`,
       ];
       const atrSl = atr * 0.8;
       sl  = +(price - atrSl).toFixed(isForex?5:2);
       tp1 = +(price + atr * 1.5).toFixed(isForex?5:2);
       tp2 = +(price + atr * 2.5).toFixed(isForex?5:2);
-      const risk  = 100000 * 0.02;
+      const risk = 100000 * 0.02;
       const pipVal = isForex ? 10 : 100;
-      lots = +(risk / (Math.abs(price - sl) * pipVal * (isForex?10000:1))).toFixed(2);
-    } else if (!bullMomentum && !priceAbovePivot && rsiOk && volatilityOk) {
+      lots = Math.max(0.01, +(risk / (Math.abs(price - sl) * pipVal * (isForex?10000:1))).toFixed(2));
+    } else if (bearScore >= 3 && rsiOk && volatilityOk) {
       signal = 'TRADE'; direction = 'SHORT';
-      confidence = Math.min(95, 60 + (rsiOk?10:0) + (strongMove?10:0) + (volatilityOk?10:0) + (!bullMomentum?15:0));
+      confidence = Math.min(92, 55 + bearScore*8 + (strongMove?7:0));
       reasons = [
-        `EMA5 (${ema5.toFixed(isForex?4:2)}) < EMA20 (${ema20.toFixed(isForex?4:2)}) — momentum baissier`,
-        `Prix en-dessous du pivot ${pivot.toFixed(isForex?4:2)}`,
-        `RSI ${rsi.toFixed(0)} — zone neutre, pas de survente`,
+        !bullMomentum ? `EMA5 (${ema5.toFixed(isForex?4:2)}) < EMA20 (${ema20.toFixed(isForex?4:2)}) — momentum baissier` : `Prix proche résistance`,
+        !priceAbovePivot ? `Prix en-dessous du pivot ${pivot.toFixed(isForex?4:2)}` : `RSI favorable`,
+        `RSI ${rsi.toFixed(0)} — zone neutre`,
         `ATR ${atr.toFixed(isForex?4:1)} — volatilité acceptable`,
       ];
       const atrSl = atr * 0.8;
       sl  = +(price + atrSl).toFixed(isForex?5:2);
       tp1 = +(price - atr * 1.5).toFixed(isForex?5:2);
       tp2 = +(price - atr * 2.5).toFixed(isForex?5:2);
-      const risk  = 100000 * 0.02;
+      const risk = 100000 * 0.02;
       const pipVal = isForex ? 10 : 100;
-      lots = +(risk / (Math.abs(price - sl) * pipVal * (isForex?10000:1))).toFixed(2);
+      lots = Math.max(0.01, +(risk / (Math.abs(price - sl) * pipVal * (isForex?10000:1))).toFixed(2));
     } else {
       reasons = [];
       if (!volatilityOk) reasons.push(`ATR ${atr.toFixed(isForex?4:1)} — volatilité ${atr<atrMin?"trop faible":"trop élevée"}`);
-      if (rsi >= 75) reasons.push(`RSI ${rsi.toFixed(0)} — zone de surachat, risque de retournement`);
+      if (rsi >= 78) reasons.push(`RSI ${rsi.toFixed(0)} — zone de surachat, risque de retournement`);
       if (rsi <= 30) reasons.push(`RSI ${rsi.toFixed(0)} — zone de survente, attendre confirmation`);
       if (!strongMove) reasons.push('Momentum insuffisant — pas de signal clair');
       if (!reasons.length) reasons.push('Signaux contradictoires — attendre une confirmation');
