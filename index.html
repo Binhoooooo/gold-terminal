@@ -1285,7 +1285,7 @@ function openEAModal(){ document.getElementById('ea-modal').style.display='flex'
 function closeEAModal(){ document.getElementById('ea-modal').style.display='none'; }
 
 function downloadEA(){
-  var url = '/GoldTerminalEA.mq4';
+  var url = '/api/ea';
   var a = document.createElement('a');
   a.href = url; a.download = 'GoldTerminalEA.mq4';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
