@@ -17,6 +17,7 @@ input int      Slippage     = 5;          // Slippage en points
 input int      MagicNumber  = 77777;      // Numéro magique unique
 input bool     AutoTP2      = true;       // Utiliser TP2 comme Take Profit
 input bool     ShowAlerts   = true;       // Alertes popup MT4
+input bool     PushNotif    = true;       // Notifications push sur téléphone
 input int      MinConfiance = 65;         // Confiance minimum pour trader (%)
 
 //--- Variables internes
@@ -160,6 +161,8 @@ void CheckSignal()
       Print("✅ TRADE EXÉCUTÉ — Ticket #", ticket, " | ", msg);
       if(ShowAlerts)
          Alert("✅ GOLD TERMINAL — Trade exécuté!\n\n" + msg + "\n\nTicket: #" + IntegerToString(ticket));
+      if(PushNotif)
+         SendNotification("🥇 GOLD TERMINAL\n" + msg + "\nTicket #" + IntegerToString(ticket));
    }
    else
    {
