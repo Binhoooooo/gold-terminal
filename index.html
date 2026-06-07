@@ -962,7 +962,7 @@ function updateConsensus(sig){
 
   cOwn.textContent   = label; cOwn.style.color   = color;
   cFinal.textContent = label; cFinal.style.color = color;
-  cConf.textContent  = conf+'%'; cConf.style.color  = conf>70?'#22c55e':conf>50?'#f59e0b':'#ef4444';
+  cConf.textContent  = Math.round(conf)+'%'; cConf.style.color  = conf>70?'#22c55e':conf>50?'#f59e0b':'#ef4444';
 
   badge.textContent   = ownDir==='WAIT'?'NEUTRE':ownDir;
   badge.style.color   = color;
@@ -1085,7 +1085,7 @@ function updateSignalUI(prefix,d){
   box.style.background=canTrade?(d.direction==='LONG'?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'):'rgba(245,158,11,.07)';
   document.getElementById('sig-'+prefix+'-name').textContent=canTrade?(d.direction==='LONG'?'▲ LONG':'▼ SHORT'):'⏸ ATTENDRE';
   document.getElementById('sig-'+prefix+'-name').style.color=sigColor;
-  document.getElementById('sig-'+prefix+'-badge').textContent=canTrade?'Confiance '+d.confidence+'%':'Pas de signal clair';
+  document.getElementById('sig-'+prefix+'-badge').textContent=canTrade?'Confiance '+Math.round(d.confidence)+'%':'Pas de signal clair';
   document.getElementById('sig-'+prefix+'-badge').style.color=sigColor;
   document.getElementById('sig-'+prefix+'-badge').style.background=sigColor+'22';
   document.getElementById('sig-'+prefix+'-badge').style.borderColor=sigColor+'44';
