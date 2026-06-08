@@ -233,8 +233,19 @@ void CheckSignal()
    if(lotSize <= 0) lotSize = 0.1;
    lotSize = NormalizeLots(lotSize);
 
-   //--- Take Profit
-   double takeProfit = AutoTP2 ? tp2 : tp1;
+   //--- Recalcule SL/TP basé sur le prix RÉEL MT4 + ATR (évite décalage Yahoo Finance)
+   double atr = iATR(Symbole, PERIOD_H1, 14, 0);
+   if(atr <= 0) atr = 15;
+   double realAsk = MarketInfo(Symbole, MODE_ASK);
+   double realBid = MarketInfo(Symbole, MODE_BID);
+   double realSL, realTP;
+   if(direction == "LONG") {
+      realSL = NormalizeDouble(realAsk - atr * 0.8, 2);
+      realTP = NormalizeDouble(realAsk + atr * 2.5, 2);
+   } else {
+      realSL = NormalizeDouble(realBid + atr * 0.8, 2);
+      realTP = NormalizeDouble(realBid - atr * 2.5, 2);
+   }
 
    //--- Exécution du trade
    int ticket = -1;
@@ -246,18 +257,18 @@ void CheckSignal()
       if(direction == "LONG")
       {
          double ask = MarketInfo(Symbole, MODE_ASK);
-         ticket = OrderSend(Symbole, OP_BUY, lotSize, ask, Slippage, sl, takeProfit,
+         ticket = OrderSend(Symbole, OP_BUY, lotSize, ask, Slippage, realSL, realTP,
                             "GoldTerminal", MagicNumber, 0, clrLime);
-         msg = StringFormat("▲ BUY %s | %.2f lots | SL: %.2f | TP: %.2f | Conf: %d%%",
-                            Symbole, lotSize, sl, takeProfit, confiance);
+         msg = StringFormat("BUY %s - %.2f lots - SL: %.2f - TP: %.2f - Conf: %d%%",
+                            Symbole, lotSize, realSL, realTP, confiance);
       }
       else if(direction == "SHORT")
       {
          double bid = MarketInfo(Symbole, MODE_BID);
-         ticket = OrderSend(Symbole, OP_SELL, lotSize, bid, Slippage, sl, takeProfit,
+         ticket = OrderSend(Symbole, OP_SELL, lotSize, bid, Slippage, realSL, realTP,
                             "GoldTerminal", MagicNumber, 0, clrRed);
-         msg = StringFormat("▼ SELL %s | %.2f lots | SL: %.2f | TP: %.2f | Conf: %d%%",
-                            Symbole, lotSize, sl, takeProfit, confiance);
+         msg = StringFormat("SELL %s - %.2f lots - SL: %.2f - TP: %.2f - Conf: %d%%",
+                            Symbole, lotSize, realSL, realTP, confiance);
       }
       if(ticket > 0) break;
       int err = GetLastError();
