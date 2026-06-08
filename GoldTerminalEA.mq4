@@ -28,6 +28,8 @@ string   lastSignalId  = "";
 datetime lastCheck     = 0;
 bool     eaActive      = true;
 string   CMD_URL       = "https://gold-terminal-silk.vercel.app/api/command";
+int      lastOpenTickets[10];
+int      lastOpenCount  = 0;
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -49,10 +51,58 @@ int OnInit()
 void OnTimer()
 {
    if(!eaActive) return;
-   // Vérifie d'abord les commandes manuelles du site
+   CheckClosedTrades();
    CheckManualCommand();
-   // Puis le signal automatique
    CheckSignal();
+}
+
+//+------------------------------------------------------------------+
+void CheckClosedTrades()
+{
+   // Récupère les tickets actuellement ouverts
+   int currentTickets[10];
+   int currentCount = 0;
+   for(int i = OrdersTotal()-1; i >= 0; i--)
+   {
+      if(OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+         if(OrderSymbol() == Symbole && OrderMagicNumber() == MagicNumber && currentCount < 10)
+            currentTickets[currentCount++] = OrderTicket();
+   }
+
+   // Compare avec la liste précédente — cherche les tickets fermés
+   for(int j = 0; j < lastOpenCount; j++)
+   {
+      bool stillOpen = false;
+      for(int k = 0; k < currentCount; k++)
+         if(currentTickets[k] == lastOpenTickets[j]) { stillOpen = true; break; }
+
+      if(!stillOpen)
+      {
+         // Ce ticket vient de se fermer — cherche dans l'historique
+         for(int h = OrdersHistoryTotal()-1; h >= 0; h--)
+         {
+            if(OrderSelect(h, SELECT_BY_POS, MODE_HISTORY))
+            {
+               if(OrderTicket() == lastOpenTickets[j])
+               {
+                  double profit = OrderProfit() + OrderSwap() + OrderCommission();
+                  string dir    = (OrderType() == OP_BUY) ? "BUY" : "SELL";
+                  string result = (profit >= 0) ? "✅ PROFIT" : "❌ PERTE";
+                  string msg    = StringFormat("%s %s ferme | %s %+.2f$ | Entry: %.2f | Close: %.2f",
+                     dir, Symbole, result, profit, OrderOpenPrice(), OrderClosePrice());
+                  Print("📊 TRADE FERME — ", msg);
+                  if(PushNotif) SendNotification("📊 GOLD TERMINAL\n" + msg);
+                  SendWhatsApp("GOLD TERMINAL - Trade ferme! " + msg);
+                  break;
+               }
+            }
+         }
+      }
+   }
+
+   // Met à jour la liste
+   lastOpenCount = currentCount;
+   for(int m = 0; m < currentCount; m++) lastOpenTickets[m] = currentTickets[m];
 }
 
 //+------------------------------------------------------------------+
