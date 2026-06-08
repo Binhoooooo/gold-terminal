@@ -314,16 +314,21 @@ double NormalizeLots(double lots)
 void SendWhatsApp(string msg)
 {
    if(WAPhone == "" || WAApiKey == "") return;
-   string phone = WAPhone;
-   // Encode les espaces et caractères spéciaux
-   StringReplace(msg, " ", "%20");
-   StringReplace(msg, "|", "%7C");
-   StringReplace(msg, "#", "%23");
-   StringReplace(msg, "\n", "%0A");
-   string url = "https://api.callmebot.com/whatsapp.php?phone=" + phone + "&text=" + msg + "&apikey=" + WAApiKey;
+   // Simplifie le message — supprime les caractères spéciaux
+   StringReplace(msg, "▲", "BUY");
+   StringReplace(msg, "▼", "SELL");
+   StringReplace(msg, "|", "-");
+   StringReplace(msg, "#", "");
+   StringReplace(msg, " ", "+");
+   StringReplace(msg, "\n", "+");
+   string url = "https://api.callmebot.com/whatsapp.php?phone=" + WAPhone + "&text=" + msg + "&apikey=" + WAApiKey;
    string headers = "", resultHeaders;
    char post[], result[];
-   WebRequest("GET", url, headers, 5000, post, result, resultHeaders);
+   int res = WebRequest("GET", url, headers, 8000, post, result, resultHeaders);
+   if(res == -1)
+      Print("❌ WhatsApp erreur: ", GetLastError(), " — vérifie api.callmebot.com dans les URLs autorisées");
+   else
+      Print("✅ WhatsApp envoyé");
 }
 
 //+------------------------------------------------------------------+
