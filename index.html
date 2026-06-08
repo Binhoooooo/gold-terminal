@@ -400,7 +400,7 @@ canvas.spark{display:block}
 
   <!-- Bouton MT4 — visible quand signal TRADE actif -->
   <div id="mt4-trade-btn-wrap" style="display:none">
-    <button class="btn-mt4" onclick="openEAModal()">
+    <button class="btn-mt4" onclick="onMT4BtnClick()">
       <span style="font-size:1.1rem">🤖</span>
       PRENDRE LE TRADE SUR META TRADER 4
     </button>
@@ -411,7 +411,7 @@ canvas.spark{display:block}
     </div>
   </div>
 
-  <button class="btn-ghost" onclick="openEAModal()" style="border-color:rgba(34,197,94,.2)">🤖 INSTALLER LE ROBOT MT4 — AUTO TRADE</button>
+  <button class="btn-ghost" onclick="openEAModal()" id="install-ea-btn" style="border-color:rgba(34,197,94,.2)">🤖 INSTALLER LE ROBOT MT4 — AUTO TRADE</button>
   <button class="btn-ghost" onclick="fetchSignals()">↻ RELANCER TOUTES LES ANALYSES</button>
 </div>
 
@@ -487,8 +487,59 @@ canvas.spark{display:block}
         <div style="font-size:0.75rem;color:#6b7280;line-height:1.55">Le trading automatique comporte des risques. Ne laisse jamais tourner le robot sans surveiller ton compte. Teste d'abord sur un compte démo.</div>
       </div>
 
+      <!-- Bouton "Déjà installé" -->
+      <div style="padding:16px 0 0">
+        <button class="btn-mt4-sec" onclick="markEAInstalled()" style="border-color:rgba(34,197,94,.5);color:#22c55e;font-weight:700">
+          ✅ J'AI DÉJÀ INSTALLÉ LE ROBOT — AFFICHER LE STATUT
+        </button>
+      </div>
+
     </div>
   </div>
+
+<!-- MODAL STATUT EA -->
+<div id="ea-status-modal" class="modal-bg" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:1.3rem">🤖</span>
+        <div>
+          <div style="font-family:'Space Mono',monospace;font-size:0.75rem;color:#22c55e;font-weight:700">ROBOT MT4 — ACTIF</div>
+          <div style="font-family:'Space Mono',monospace;font-size:0.58rem;color:#6b7280">Signal en cours · XAUUSD H1</div>
+        </div>
+      </div>
+      <button onclick="document.getElementById('ea-status-modal').style.display='none'" style="background:transparent;border:none;color:#6b7280;font-size:1.2rem;cursor:pointer">✕</button>
+    </div>
+    <div class="modal-body" style="gap:12px">
+      <div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:12px;padding:20px;text-align:center">
+        <div style="font-family:'Space Mono',monospace;font-size:2rem;font-weight:700;margin-bottom:8px" id="ea-status-modal-dir">—</div>
+        <div style="font-family:'Space Mono',monospace;font-size:0.58rem;color:#6b7280">SIGNAL DÉTECTÉ</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:var(--bg1);border:1px solid var(--brd);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-family:'Space Mono',monospace;font-size:0.52rem;color:var(--muted);margin-bottom:4px">PRIX</div>
+          <div style="font-family:'Space Mono',monospace;font-size:0.9rem;font-weight:700" id="ea-status-modal-price">—</div>
+        </div>
+        <div style="background:var(--bg1);border:1px solid var(--brd);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-family:'Space Mono',monospace;font-size:0.52rem;color:var(--muted);margin-bottom:4px">CONFIANCE</div>
+          <div style="font-family:'Space Mono',monospace;font-size:0.9rem;font-weight:700;color:#22c55e" id="ea-status-modal-conf">—</div>
+        </div>
+        <div style="background:var(--bg1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-family:'Space Mono',monospace;font-size:0.52rem;color:#ef4444;margin-bottom:4px">STOP LOSS</div>
+          <div style="font-family:'Space Mono',monospace;font-size:0.9rem;font-weight:700;color:#ef4444" id="ea-status-modal-sl">—</div>
+        </div>
+        <div style="background:var(--bg1);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-family:'Space Mono',monospace;font-size:0.52rem;color:#22c55e;margin-bottom:4px">TAKE PROFIT</div>
+          <div style="font-family:'Space Mono',monospace;font-size:0.9rem;font-weight:700;color:#22c55e" id="ea-status-modal-tp">—</div>
+        </div>
+      </div>
+      <div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-family:'Space Mono',monospace;font-size:0.65rem;color:#22c55e">🤖 Le robot surveille automatiquement</div>
+        <div style="font-family:'Space Mono',monospace;font-size:0.58rem;color:#6b7280;margin-top:4px">Poll toutes les 30 secondes · MT4 actif</div>
+      </div>
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- ══════════════════════════════════════════════
@@ -1309,6 +1360,45 @@ setInterval(function(){ if(goldData.ts) document.getElementById('hdr-src').textC
 // ═══════════════════════════════════════════════════════════
 function openEAModal(){ document.getElementById('ea-modal').style.display='flex'; }
 function closeEAModal(){ document.getElementById('ea-modal').style.display='none'; }
+
+// Bouton principal MT4 — si EA déjà installé, montre le statut; sinon guide install
+function onMT4BtnClick(){
+  if(localStorage.getItem('ea_installed') === '1'){
+    showEAStatus();
+  } else {
+    openEAModal();
+  }
+}
+
+function markEAInstalled(){
+  localStorage.setItem('ea_installed','1');
+  closeEAModal();
+  // Cache le bouton installer, montre le statut
+  var btn = document.getElementById('install-ea-btn');
+  if(btn) btn.style.display = 'none';
+  showEAStatus();
+}
+
+function showEAStatus(){
+  var d = window.lastGoldSigData || {};
+  var dir = d.direction === 'LONG' ? '▲ LONG' : d.direction === 'SHORT' ? '▼ SHORT' : '⏸ ATTENTE';
+  var col = d.direction === 'LONG' ? '#22c55e' : d.direction === 'SHORT' ? '#ef4444' : '#f59e0b';
+  document.getElementById('ea-status-modal-dir').textContent = dir;
+  document.getElementById('ea-status-modal-dir').style.color = col;
+  document.getElementById('ea-status-modal-price').textContent = d.price ? '$'+d.price : '—';
+  document.getElementById('ea-status-modal-sl').textContent = d.sl ? '$'+d.sl : '—';
+  document.getElementById('ea-status-modal-tp').textContent = d.tp2 ? '$'+d.tp2 : '—';
+  document.getElementById('ea-status-modal-conf').textContent = d.confidence ? Math.round(d.confidence)+'%' : '—';
+  document.getElementById('ea-status-modal').style.display = 'flex';
+}
+
+// Init: si EA déjà installé, cache le bouton install
+(function(){
+  if(localStorage.getItem('ea_installed') === '1'){
+    var btn = document.getElementById('install-ea-btn');
+    if(btn) btn.style.display = 'none';
+  }
+})();
 
 function downloadEA(){
   var url = '/api/ea';
