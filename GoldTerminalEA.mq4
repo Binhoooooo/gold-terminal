@@ -20,8 +20,8 @@ input bool     ShowAlerts   = true;       // Alertes popup MT4
 input bool     PushNotif    = true;       // Notifications push sur téléphone
 input int      MinConfiance = 55;         // Confiance minimum pour trader (%)
 input int      MaxTrades    = 2;          // Nombre max de trades simultanés
-input string   WAPhone      = "";         // Ton numéro WhatsApp ex: +33612345678
-input string   WAApiKey     = "";         // API key CallMeBot (reçue par WhatsApp)
+input string   WAPhone      = "+33623041830"; // Ton numéro WhatsApp
+input string   WAApiKey     = "6406801";     // API key CallMeBot
 
 //--- Variables internes
 string   lastSignalId  = "";
