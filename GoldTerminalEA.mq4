@@ -20,6 +20,8 @@ input bool     ShowAlerts   = true;       // Alertes popup MT4
 input bool     PushNotif    = true;       // Notifications push sur téléphone
 input int      MinConfiance = 55;         // Confiance minimum pour trader (%)
 input int      MaxTrades    = 2;          // Nombre max de trades simultanés
+input string   WAPhone      = "";         // Ton numéro WhatsApp ex: +33612345678
+input string   WAApiKey     = "";         // API key CallMeBot (reçue par WhatsApp)
 
 //--- Variables internes
 string   lastSignalId  = "";
@@ -95,6 +97,7 @@ void CheckManualCommand()
       Print("✅ TRADE MANUEL EXÉCUTÉ — Ticket #", ticket, " | ", msg);
       if(ShowAlerts) Alert("✅ GOLD TERMINAL — Trade Manuel!\n\n" + msg);
       if(PushNotif) SendNotification("📱 TRADE MANUEL\n" + msg);
+      SendWhatsApp("GOLD TERMINAL - Trade MANUEL ouvert! " + msg);
       // Efface la commande sur le serveur
       char delPost[], delResult[];
       string delHeaders = "", delResultHeaders;
@@ -221,6 +224,7 @@ void CheckSignal()
          Alert("✅ GOLD TERMINAL — Trade exécuté!\n\n" + msg + "\n\nTicket: #" + IntegerToString(ticket));
       if(PushNotif)
          SendNotification("🥇 GOLD TERMINAL\n" + msg + "\nTicket #" + IntegerToString(ticket));
+      SendWhatsApp("GOLD TERMINAL - Trade ouvert! " + msg + " Ticket #" + IntegerToString(ticket));
    }
    else
    {
@@ -254,6 +258,22 @@ double NormalizeLots(double lots)
    lots = MathFloor(lots / lotStep) * lotStep;
    lots = MathMax(minLot, MathMin(maxLot, lots));
    return NormalizeDouble(lots, 2);
+}
+
+//+------------------------------------------------------------------+
+void SendWhatsApp(string msg)
+{
+   if(WAPhone == "" || WAApiKey == "") return;
+   string phone = WAPhone;
+   // Encode les espaces et caractères spéciaux
+   StringReplace(msg, " ", "%20");
+   StringReplace(msg, "|", "%7C");
+   StringReplace(msg, "#", "%23");
+   StringReplace(msg, "\n", "%0A");
+   string url = "https://api.callmebot.com/whatsapp.php?phone=" + phone + "&text=" + msg + "&apikey=" + WAApiKey;
+   string headers = "", resultHeaders;
+   char post[], result[];
+   WebRequest("GET", url, headers, 5000, post, result, resultHeaders);
 }
 
 //+------------------------------------------------------------------+
