@@ -1,34 +1,38 @@
-// Stockage en mémoire (persiste entre les requêtes sur la même instance Vercel)
-let pendingTrade = null;
-let pendingTs = 0;
-const TTL = 120000; // 2 minutes
+import { readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
+
+const FILE = join('/tmp', 'gt_command.json');
+const TTL  = 120000; // 2 minutes
+
+function load() {
+  try { return JSON.parse(readFileSync(FILE, 'utf8')); } catch { return { trade: null, ts: 0 }; }
+}
+function save(data) {
+  try { writeFileSync(FILE, JSON.stringify(data)); } catch {}
+}
 
 export default function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
 
-  // POST → crée une commande de trade manuel
   if (req.method === 'POST') {
     const dir = req.query.dir || req.body?.dir;
-    if (dir !== 'LONG' && dir !== 'SHORT') {
+    if (dir !== 'LONG' && dir !== 'SHORT')
       return res.status(400).json({ error: 'dir must be LONG or SHORT' });
-    }
-    pendingTrade = dir;
-    pendingTs = Date.now();
-    return res.json({ ok: true, trade: pendingTrade, ts: pendingTs });
+    const data = { trade: dir, ts: Date.now() };
+    save(data);
+    return res.json({ ok: true, ...data });
   }
 
-  // DELETE → efface la commande (après exécution par l'EA)
   if (req.method === 'DELETE') {
-    pendingTrade = null;
-    pendingTs = 0;
+    save({ trade: null, ts: 0 });
     return res.json({ ok: true, cleared: true });
   }
 
-  // GET → retourne la commande si encore fraîche (< 2min)
-  if (pendingTrade && (Date.now() - pendingTs) < TTL) {
-    return res.json({ trade: pendingTrade, ts: pendingTs, age: Date.now() - pendingTs });
-  }
+  // GET
+  const data = load();
+  if (data.trade && (Date.now() - data.ts) < TTL)
+    return res.json({ trade: data.trade, ts: data.ts, age: Date.now() - data.ts });
 
   return res.json({ trade: null });
 }

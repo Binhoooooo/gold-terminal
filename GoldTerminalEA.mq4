@@ -12,7 +12,7 @@
 input string   API_URL      = "https://gold-terminal-silk.vercel.app/api/signal?symbol=GC%3DF";
 input string   Symbole      = "XAUUSD";   // Symbole MT4 de l'or
 input double   Lots         = 0.0;        // 0 = utilise les lots du signal, sinon fixe
-input int      CheckEvery   = 30;         // Vérification toutes les X secondes
+input int      CheckEvery   = 5;          // Vérification toutes les X secondes
 input int      Slippage     = 5;          // Slippage en points
 input int      MagicNumber  = 77777;      // Numéro magique unique
 input bool     AutoTP2      = true;       // Utiliser TP2 comme Take Profit
@@ -139,6 +139,7 @@ void CheckSignal()
    double tp1       = ParseNum(json, "\"tp1\":");
    double tp2       = ParseNum(json, "\"tp2\":");
    double lots_sig  = ParseNum(json, "\"lots\":");
+   string ts        = ParseRaw(json, "\"ts\":");
 
    //--- Log du statut
    string status = StringFormat("[%s] Signal: %s | Dir: %s | Conf: %d%% | Prix: %.2f | SL: %.2f | TP1: %.2f | TP2: %.2f",
@@ -147,28 +148,29 @@ void CheckSignal()
    Print(status);
 
    //--- Pas de signal de trade
-   if(signal != "TRADE") return;
-   if(direction != "LONG" && direction != "SHORT") return;
+   if(signal != "TRADE") { Print("◌ Signal=", signal, " — en attente"); return; }
+   if(direction != "LONG" && direction != "SHORT") { Print("◌ Direction inconnue: '", direction, "'"); return; }
 
    //--- Confiance insuffisante
    if(confiance < MinConfiance)
    {
-      Print("⚠ Confiance ", confiance, "% < minimum ", MinConfiance, "% — trade ignoré");
+      Print("⚠ BLOQUÉ — Confiance ", confiance, "% < minimum requis ", MinConfiance, "% | Dir: ", direction);
       return;
    }
 
-   //--- Identifiant unique du signal (évite les doublons)
-   string sigId = direction + DoubleToStr(price, 2) + IntegerToString(confiance);
+   //--- Identifiant unique du signal basé sur le timestamp API (pas le prix)
+   string sigId = (ts != "") ? ts : direction + DoubleToStr(price, 2);
    if(sigId == lastSignalId)
    {
-      Print("◷ Signal déjà traité, attente du prochain...");
+      Print("◷ Signal déjà traité (ts=", sigId, ") — attente du prochain...");
       return;
    }
 
    //--- Vérifie si un trade est déjà ouvert
-   if(CountOpenTrades() > 0)
+   int openTrades = CountOpenTrades();
+   if(openTrades > 0)
    {
-      Print("⚠ Trade déjà ouvert sur ", Symbole, " — nouveau signal ignoré");
+      Print("⚠ BLOQUÉ — ", openTrades, " trade(s) déjà ouvert(s) sur ", Symbole, " (Magic#", MagicNumber, ") — signal ignoré");
       return;
    }
 
@@ -251,6 +253,24 @@ double NormalizeLots(double lots)
    lots = MathFloor(lots / lotStep) * lotStep;
    lots = MathMax(minLot, MathMin(maxLot, lots));
    return NormalizeDouble(lots, 2);
+}
+
+//+------------------------------------------------------------------+
+// Extrait un nombre brut (pour ts qui est un entier large sans guillemets)
+string ParseRaw(string json, string key)
+{
+   int start = StringFind(json, key);
+   if(start == -1) return "";
+   start += StringLen(key);
+   while(start < StringLen(json) && StringSubstr(json, start, 1) == " ") start++;
+   string val = "";
+   for(int i = start; i < start + 20; i++)
+   {
+      string c = StringSubstr(json, i, 1);
+      if(c == "," || c == "}" || c == "]" || c == " " || c == "\n") break;
+      val += c;
+   }
+   return val;
 }
 
 //+------------------------------------------------------------------+
