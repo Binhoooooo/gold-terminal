@@ -24,6 +24,7 @@ input int      MinConfiance = 65;         // Confiance minimum pour trader (%)
 string   lastSignalId  = "";
 datetime lastCheck     = 0;
 bool     eaActive      = true;
+string   CMD_URL       = "https://gold-terminal-silk.vercel.app/api/command";
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -45,7 +46,61 @@ int OnInit()
 void OnTimer()
 {
    if(!eaActive) return;
+   // Vérifie d'abord les commandes manuelles du site
+   CheckManualCommand();
+   // Puis le signal automatique
    CheckSignal();
+}
+
+//+------------------------------------------------------------------+
+void CheckManualCommand()
+{
+   string headers = "", resultHeaders;
+   char   post[], result[];
+   int res = WebRequest("GET", CMD_URL, headers, 5000, post, result, resultHeaders);
+   if(res == -1) return;
+
+   string json = CharArrayToString(result);
+   string trade = ParseStr(json, "\"trade\":\"", "\"");
+   if(trade != "LONG" && trade != "SHORT") return;
+
+   // Commande manuelle détectée !
+   Print("📱 COMMANDE MANUELLE REÇUE: ", trade);
+
+   double ask = MarketInfo(Symbole, MODE_ASK);
+   double bid = MarketInfo(Symbole, MODE_BID);
+   double atr = iATR(Symbole, PERIOD_H1, 14, 0);
+   if(atr <= 0) atr = 50;
+
+   double sl, tp, entryPrice;
+   int ticket = -1;
+   string msg = "";
+
+   if(trade == "LONG") {
+      entryPrice = ask;
+      sl = NormalizeDouble(entryPrice - atr * 0.8, 2);
+      tp = NormalizeDouble(entryPrice + atr * 2.5, 2);
+      ticket = OrderSend(Symbole, OP_BUY, 0.1, entryPrice, Slippage, sl, tp, "GoldTerminal-MANUAL", MagicNumber, 0, clrLime);
+      msg = StringFormat("▲ BUY MANUEL %s | 0.10 lots | SL: %.2f | TP: %.2f", Symbole, sl, tp);
+   } else {
+      entryPrice = bid;
+      sl = NormalizeDouble(entryPrice + atr * 0.8, 2);
+      tp = NormalizeDouble(entryPrice - atr * 2.5, 2);
+      ticket = OrderSend(Symbole, OP_SELL, 0.1, entryPrice, Slippage, sl, tp, "GoldTerminal-MANUAL", MagicNumber, 0, clrRed);
+      msg = StringFormat("▼ SELL MANUEL %s | 0.10 lots | SL: %.2f | TP: %.2f", Symbole, sl, tp);
+   }
+
+   if(ticket > 0) {
+      Print("✅ TRADE MANUEL EXÉCUTÉ — Ticket #", ticket, " | ", msg);
+      if(ShowAlerts) Alert("✅ GOLD TERMINAL — Trade Manuel!\n\n" + msg);
+      if(PushNotif) SendNotification("📱 TRADE MANUEL\n" + msg);
+      // Efface la commande sur le serveur
+      char delPost[], delResult[];
+      string delHeaders = "", delResultHeaders;
+      WebRequest("DELETE", CMD_URL, delHeaders, 3000, delPost, delResult, delResultHeaders);
+   } else {
+      Print("❌ Échec trade manuel — Erreur: ", GetLastError(), " | ", msg);
+   }
 }
 
 void OnTick()
