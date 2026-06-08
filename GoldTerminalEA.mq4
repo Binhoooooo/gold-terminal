@@ -19,6 +19,7 @@ input bool     AutoTP2      = true;       // Utiliser TP2 comme Take Profit
 input bool     ShowAlerts   = true;       // Alertes popup MT4
 input bool     PushNotif    = true;       // Notifications push sur téléphone
 input int      MinConfiance = 55;         // Confiance minimum pour trader (%)
+input int      MaxTrades    = 2;          // Nombre max de trades simultanés
 
 //--- Variables internes
 string   lastSignalId  = "";
@@ -166,11 +167,11 @@ void CheckSignal()
       return;
    }
 
-   //--- Vérifie si un trade est déjà ouvert
+   //--- Vérifie si le max de trades est atteint
    int openTrades = CountOpenTrades();
-   if(openTrades > 0)
+   if(openTrades >= MaxTrades)
    {
-      Print("⚠ BLOQUÉ — ", openTrades, " trade(s) déjà ouvert(s) sur ", Symbole, " (Magic#", MagicNumber, ") — signal ignoré");
+      Print("⚠ BLOQUÉ — ", openTrades, "/", MaxTrades, " trades ouverts sur ", Symbole, " — signal ignoré");
       return;
    }
 
