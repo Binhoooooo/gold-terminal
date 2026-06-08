@@ -18,7 +18,7 @@ input int      MagicNumber  = 77777;      // Numéro magique unique
 input bool     AutoTP2      = true;       // Utiliser TP2 comme Take Profit
 input bool     ShowAlerts   = true;       // Alertes popup MT4
 input bool     PushNotif    = true;       // Notifications push sur téléphone
-input int      MinConfiance = 65;         // Confiance minimum pour trader (%)
+input int      MinConfiance = 55;         // Confiance minimum pour trader (%)
 
 //--- Variables internes
 string   lastSignalId  = "";

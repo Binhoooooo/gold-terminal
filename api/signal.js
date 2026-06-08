@@ -52,8 +52,8 @@ export default async function handler(req, res) {
     const rsi = 100 - (100 / (1 + avgGain/avgLoss));
 
     const isForex   = symbol.includes('USD=X');
-    const atrMin    = isForex ? 0.0005 : 5;
-    const atrMax    = isForex ? 0.03   : 120;
+    const atrMin    = isForex ? 0.0005 : 3;
+    const atrMax    = isForex ? 0.03   : 250;
     const volatilityOk = atr > atrMin && atr < atrMax;
 
     let signal = 'WAIT', direction = null, confidence = 0, reasons = [];
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
 
     const bullMomentum    = ema5 > ema20;
     const priceAbovePivot = price > pivot;
-    const rsiOk           = rsi > 35 && rsi < 78;
+    const rsiOk           = rsi > 30 && rsi < 82;
     const strongMove      = Math.abs(pct) > (isForex ? 0.03 : 0.05);
     // Score: signal si au moins 3 conditions sur 4
     const bullScore = (bullMomentum?1:0) + (priceAbovePivot?1:0) + (rsiOk?1:0) + (volatilityOk?1:0);
