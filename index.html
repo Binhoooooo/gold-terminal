@@ -195,7 +195,6 @@ canvas.spark{display:block}
         <div style="font-family:'Space Mono',monospace;font-size:0.55rem;color:var(--dim);margin-top:1px" id="hdr-src">—</div>
       </div>
       <span class="badge" id="hdr-badge" style="background:rgba(245,158,11,.2);color:var(--a);border-color:rgba(245,158,11,.35)">CHARGEMENT</span>
-      <button onclick="fetchSignals()" style="background:transparent;border:1px solid rgba(245,158,11,.3);color:var(--a);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;font-size:0.6rem;cursor:pointer;margin-left:4px">↻</button>
     </div>
 
     <div class="hdr-center">
@@ -229,6 +228,9 @@ canvas.spark{display:block}
 </header>
 
 <main>
+
+<!-- Bouton refresh fixe en haut à gauche -->
+<button onclick="fetchSignals()" style="position:fixed;top:80px;left:16px;z-index:200;background:var(--bg2);border:1px solid rgba(245,158,11,.4);color:var(--a);border-radius:10px;padding:10px 16px;font-family:'Space Mono',monospace;font-size:0.75rem;font-weight:700;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.4)">↻ RELANCER</button>
 
 <!-- ══════════════════════════════════════════════
      SIGNAL TAB
